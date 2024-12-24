@@ -6,12 +6,12 @@ const port = 3000;
 
 // PostgreSQL connection
 const pool = new Pool({
-  user: 'root',          // Replace with your PostgreSQL username
-  host: 'localhost',     // Should be localhost if PostgreSQL is on the same machine
-  database: 'devicedata', // Make sure this database exists
-  password: 'root',      // Replace with your password
-  port: 5432,            // Default port for PostgreSQL
+  connectionString: 'postgresql://rooot:OoFge9wi0i78FwRvIVPLjWMUxmGH8qBj@dpg-ctl6noaj1k6c73cuct80-a.singapore-postgres.render.com/devicedata',
+  ssl: {
+    rejectUnauthorized: false, // Required for Render's hosted PostgreSQL
+  },
 });
+
 app.use(cors());
 app.use(express.json());
 
