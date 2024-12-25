@@ -1,20 +1,14 @@
-// Import the WebSocket library
 const WebSocket = require('ws');
-
-// Initialize the WebSocket server
 const wss = new WebSocket.Server({ port: process.env.PORT || 8080 });
 
 console.log('WebSocket server is listening on ws://localhost:8080');
 
-// Keep track of connected devices
 const devices = {};
 
-// Handle incoming WebSocket connections
 wss.on('connection', (ws) => {
     let deviceId = null;  // Device ID will be assigned after the first message
     console.log('A new client connected.');
 
-    // Handle incoming messages from clients
     ws.on('message', (message) => {
         if (typeof message === 'string') {
             // Handle string messages, such as device ID or audio requests
@@ -58,7 +52,6 @@ wss.on('connection', (ws) => {
         }
     });
 
-    // Handle WebSocket disconnections
     ws.on('close', () => {
         if (deviceId) {
             devices[deviceId] = devices[deviceId].filter(client => client.ws !== ws);
@@ -69,7 +62,6 @@ wss.on('connection', (ws) => {
         }
     });
 
-    // Handle WebSocket errors
     ws.on('error', (error) => {
         console.log(`Error on WebSocket: ${error}`);
     });
