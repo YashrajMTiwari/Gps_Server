@@ -3,15 +3,15 @@ const wss = new WebSocket.Server({ port: process.env.PORT || 8080 });
 
 console.log('WebSocket server is listening on ws://localhost:8080');
 
-const devices = {};  // Stores device information and their connected clients
+const devices = {};
 
 wss.on('connection', (ws) => {
-    let deviceId = null;  // Store the device ID for each connection
+    let deviceId = null;
 
-    // Handle incoming messages from clients
     ws.on('message', (message) => {
-        // If the message is a string, it could be a device ID or a request for audio
+        // Handle message as a string or buffer
         if (typeof message === 'string') {
+            // Handle string commands (device ID or audio request)
             if (!deviceId) {
                 // First message should be the device ID
                 deviceId = message;
@@ -19,13 +19,10 @@ wss.on('connection', (ws) => {
                 console.log(`Device ${deviceId} connected.`);
                 ws.send(`Welcome device ${deviceId}`);
             } else if (message.startsWith("REQUEST_AUDIO:")) {
-                // If the message is a request for audio, handle it
                 const requestedDeviceId = message.split(":")[1];
                 console.log(`Audio stream requested for device: ${requestedDeviceId}`);
-
-                // Check if the requested device has any connected clients
-                if (devices[requestedDeviceId] && devices[requestedDeviceId].length > 0) {
-                    devices[requestedDeviceId].push({ ws });  // Add the requesting client to the list
+                if (devices[requestedDeviceId]) {
+                    devices[requestedDeviceId].push({ ws });
                     ws.send(`Streaming audio for device: ${requestedDeviceId}`);
                 } else {
                     ws.send(`Device ${requestedDeviceId} is not available.`);
@@ -34,20 +31,21 @@ wss.on('connection', (ws) => {
                 console.log('Unexpected string message:', message);
             }
         } else if (Buffer.isBuffer(message)) {
-            // If the message is binary (audio data)
+            // Handle binary audio data
             if (deviceId) {
-                console.log(`Received binary audio data from device ${deviceId}. Broadcasting to clients...`);
+                console.log(`Received binary audio data from device ${deviceId}:`, message);
 
-                // Check if there are any clients that have requested this device's audio stream
+                // Broadcast binary data to all clients requesting this device's stream
                 if (devices[deviceId]) {
                     devices[deviceId].forEach(client => {
                         if (client.ws.readyState === WebSocket.OPEN) {
-                            client.ws.send(message);  // Forward the raw audio data to the requesting clients
+                            client.ws.send(message); // Forward raw audio data
                         }
                     });
                 }
             } else {
                 console.warn('Received binary data from an unidentified device.');
+                // Optionally send a message back to the client to indicate the error
                 ws.send('Device ID not set. Please send your device ID first.');
             }
         } else {
@@ -55,13 +53,10 @@ wss.on('connection', (ws) => {
         }
     });
 
-    // Handle WebSocket disconnection
+    // Handle disconnection
     ws.on('close', () => {
         if (deviceId) {
-            // Remove this client from the list of connected clients for its device
             devices[deviceId] = devices[deviceId].filter(client => client.ws !== ws);
-            
-            // If there are no more clients for this device, remove it from the devices list
             if (devices[deviceId].length === 0) {
                 delete devices[deviceId];
             }
@@ -69,9 +64,8 @@ wss.on('connection', (ws) => {
         }
     });
 
-    // Handle WebSocket errors
+    // Handle errors
     ws.on('error', (error) => {
         console.log(`Error on WebSocket: ${error}`);
     });
 });
-
