@@ -90,8 +90,9 @@ function pcmToWav(pcmBuffer) {
   });
 
   writer.end(pcmBuffer);
-  return Buffer.concat(chunks);
+  return Buffer.concat(chunks);  // Concatenate the chunks into one Buffer
 }
+
 
 // To gracefully handle server shutdown
 process.on('SIGINT', () => {
