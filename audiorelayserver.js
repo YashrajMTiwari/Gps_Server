@@ -42,16 +42,24 @@ wss.on('connection', (ws) => {
         console.log(`New stream created for device ${deviceId} with streamId ${streamId}`);
       }
 
-      // Convert PCM to WAV and forward the audio data
-      console.log(`Processing audio data from device ${deviceId}, streamId ${streamId}`);
-      const wavBuffer = pcmToWav(message);
+      // Debug log to check raw audio data received
+      console.log('Received audio data:', msg);
 
-      // Forward the WAV data to any connected client who requested this stream
-      devices[deviceId].forEach(client => {
-        if (client.ws !== ws && client.ws.readyState === WebSocket.OPEN) {
-          client.ws.send(wavBuffer); // Send WAV formatted audio data
-        }
-      });
+      // Check if the received message is PCM data, then process and send
+      if (isValidAudioData(msg)) {
+        // Convert PCM to WAV and forward the audio data
+        console.log(`Processing audio data from device ${deviceId}, streamId ${streamId}`);
+        const wavBuffer = pcmToWav(msg);
+
+        // Forward the WAV data to any connected client who requested this stream
+        devices[deviceId].forEach(client => {
+          if (client.ws !== ws && client.ws.readyState === WebSocket.OPEN) {
+            client.ws.send(wavBuffer); // Send WAV formatted audio data
+          }
+        });
+      } else {
+        console.log('Invalid audio format received or no PCM data');
+      }
     }
   });
 
@@ -91,6 +99,13 @@ function pcmToWav(pcmBuffer) {
 
   writer.end(pcmBuffer);
   return Buffer.concat(chunks);
+}
+
+// Helper function to validate PCM data
+function isValidAudioData(data) {
+  // Here we check if the data is valid PCM. This is just a placeholder.
+  // You could enhance this function based on your PCM data format.
+  return data && data.length > 0;
 }
 
 // To gracefully handle server shutdown
