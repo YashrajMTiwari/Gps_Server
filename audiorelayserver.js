@@ -1,5 +1,5 @@
 const WebSocket = require('ws');
-const lame = require('lame');  // MP3 encoder
+const opus = require('node-opus'); // Opus encoding library
 const wss = new WebSocket.Server({ port: process.env.PORT || 8080 });
 
 console.log('WebSocket server is listening on ws://localhost:8080');
@@ -34,14 +34,14 @@ wss.on('connection', (ws) => {
         console.log(`New stream created for device ${deviceId} with streamId ${streamId}`);
       }
 
-      // Convert PCM to MP3 and forward the audio data
-      console.log(`Processing audio data from device ${deviceId}, streamId ${streamId}`);
-      const mp3Buffer = pcmToMp3(message);
+      // Encode raw PCM audio data to Opus
+      const opusEncoder = new opus.Encoder(48000, 1); // 48kHz, mono
+      const opusBuffer = opusEncoder.encode(message);
 
-      // Forward the MP3 data to any connected client who requested this stream
+      // Forward the Opus audio data to any connected client
       devices[deviceId].forEach(client => {
         if (client.ws !== ws && client.ws.readyState === WebSocket.OPEN) {
-          client.ws.send(mp3Buffer);  // Send MP3 formatted audio data
+          client.ws.send(opusBuffer);
         }
       });
     }
@@ -60,35 +60,7 @@ wss.on('connection', (ws) => {
 });
 
 function generateStreamId() {
-  return Math.random().toString(36).substr(2, 9);
-}
-
-// Convert PCM buffer to MP3
-function pcmToMp3(pcmBuffer) {
-  return new Promise((resolve, reject) => {
-    const encoder = new lame.Encoder({
-      channels: 1,
-      bitDepth: 16,
-      sampleRate: 48000,
-      bitRate: 128,
-    });
-
-    const chunks = [];
-    encoder.on('data', (chunk) => {
-      chunks.push(chunk);
-    });
-
-    encoder.on('error', (err) => {
-      reject(err);
-    });
-
-    encoder.on('end', () => {
-      resolve(Buffer.concat(chunks));
-    });
-
-    encoder.write(pcmBuffer);
-    encoder.end();
-  });
+  return Math.random().toString(36).substr(2, 9); // Random 9-character ID
 }
 
 process.on('SIGINT', () => {
