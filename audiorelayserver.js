@@ -11,7 +11,6 @@ wss.on('connection', (ws) => {
   let deviceId = null;
   let streamId = null; // Unique stream identifier per device
 
-  // Handle incoming messages (audio data or requests)
   ws.on('message', (message) => {
     const msg = message.toString();
 
@@ -30,7 +29,6 @@ wss.on('connection', (ws) => {
           client.ws.send(`Streaming audio for device: ${requestedDeviceId}`);
         });
       } else {
-        // Device is not available, notify client
         ws.send(`Device ${requestedDeviceId} is not available.`);
       }
     } else {
@@ -45,11 +43,10 @@ wss.on('connection', (ws) => {
       // Debug log to check raw audio data received
       console.log('Received audio data:', msg);
 
-      // Check if the received message is PCM data, then process and send
       if (isValidAudioData(msg)) {
-        // Convert PCM to WAV and forward the audio data
+        // Convert PCM to WAV (stereo) and forward the audio data
         console.log(`Processing audio data from device ${deviceId}, streamId ${streamId}`);
-        const wavBuffer = pcmToWav(msg);
+        const wavBuffer = pcmToWav(msg, 2); // Specify 2 channels (stereo)
 
         // Forward the WAV data to any connected client who requested this stream
         devices[deviceId].forEach(client => {
@@ -66,7 +63,6 @@ wss.on('connection', (ws) => {
   // Handle disconnections
   ws.on('close', () => {
     if (deviceId) {
-      // Remove the device's stream(s) from the list
       devices[deviceId] = devices[deviceId].filter(stream => stream.ws !== ws);
       console.log(`Device ${deviceId} disconnected.`);
     }
@@ -84,14 +80,13 @@ function generateStreamId() {
 }
 
 // Helper function to convert raw PCM to WAV
-function pcmToWav(pcmBuffer) {
+function pcmToWav(pcmBuffer, numChannels) {
   const writer = new wav.Writer({
-    channels: 1,
-    sampleRate: 48000,
+    channels: numChannels, // Use 2 for stereo
+    sampleRate: 48000, // Match the sample rate used in your app
     bitDepth: 16,
   });
 
-  // Create a buffer that contains the WAV header + PCM data
   const chunks = [];
   writer.on('data', (chunk) => {
     chunks.push(chunk);
@@ -103,9 +98,7 @@ function pcmToWav(pcmBuffer) {
 
 // Helper function to validate PCM data
 function isValidAudioData(data) {
-  // Here we check if the data is valid PCM. This is just a placeholder.
-  // You could enhance this function based on your PCM data format.
-  return data && data.length > 0;
+  return data && data.length > 0; // Validate non-empty buffer
 }
 
 // To gracefully handle server shutdown
