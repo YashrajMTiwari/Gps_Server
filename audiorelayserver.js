@@ -11,9 +11,10 @@ wss.on('connection', (ws) => {
     ws.on('message', (message) => {
         // Handle message as a string or buffer
         if (typeof message === 'string') {
-            // Handle string commands
+            // Handle string commands (device ID or audio request)
             if (!deviceId) {
-                deviceId = message; // First message is the device ID
+                // First message should be the device ID
+                deviceId = message;
                 devices[deviceId] = devices[deviceId] || [];
                 console.log(`Device ${deviceId} connected.`);
                 ws.send(`Welcome device ${deviceId}`);
@@ -44,6 +45,8 @@ wss.on('connection', (ws) => {
                 }
             } else {
                 console.warn('Received binary data from an unidentified device.');
+                // Optionally send a message back to the client to indicate the error
+                ws.send('Device ID not set. Please send your device ID first.');
             }
         } else {
             console.log('Unknown message type received:', message);
