@@ -41,19 +41,23 @@ wss.on('connection', (ws) => {
       }
 
       // Debug log to check raw audio data received
-      console.log('Received audio data:', msg);
+      console.log(`Received audio data (size: ${msg.length} bytes)`);
 
       if (isValidAudioData(msg)) {
         // Convert PCM to WAV (stereo) and forward the audio data
         console.log(`Processing audio data from device ${deviceId}, streamId ${streamId}`);
-        const wavBuffer = pcmToWav(msg, 2); // Specify 2 channels (stereo)
+        const wavBuffer = pcmToWav(Buffer.from(msg), 2); // Specify 2 channels (stereo)
 
-        // Forward the WAV data to any connected client who requested this stream
-        devices[deviceId].forEach(client => {
-          if (client.ws !== ws && client.ws.readyState === WebSocket.OPEN) {
-            client.ws.send(wavBuffer); // Send WAV formatted audio data
-          }
-        });
+        if (wavBuffer && wavBuffer.length > 0) {
+          // Forward the WAV data to any connected client who requested this stream
+          devices[deviceId].forEach(client => {
+            if (client.ws !== ws && client.ws.readyState === WebSocket.OPEN) {
+              client.ws.send(wavBuffer); // Send WAV formatted audio data
+            }
+          });
+        } else {
+          console.log("WAV conversion resulted in an empty buffer. Skipping forwarding.");
+        }
       } else {
         console.log('Invalid audio format received or no PCM data');
       }
@@ -81,6 +85,11 @@ function generateStreamId() {
 
 // Helper function to convert raw PCM to WAV
 function pcmToWav(pcmBuffer, numChannels) {
+  if (!pcmBuffer || pcmBuffer.length === 0) {
+    console.log("Received empty PCM buffer. Skipping WAV conversion.");
+    return null;
+  }
+
   const writer = new wav.Writer({
     channels: numChannels, // Use 2 for stereo
     sampleRate: 48000, // Match the sample rate used in your app
@@ -93,6 +102,12 @@ function pcmToWav(pcmBuffer, numChannels) {
   });
 
   writer.end(pcmBuffer);
+
+  if (chunks.length === 0) {
+    console.log("WAV conversion produced no output.");
+    return null;
+  }
+
   return Buffer.concat(chunks);
 }
 
