@@ -1,69 +1,58 @@
 const WebSocket = require('ws');
-const wav = require('wav'); // Install this with: npm install wav
 const wss = new WebSocket.Server({ port: process.env.PORT || 8080 });
 
 console.log('WebSocket server is listening on ws://localhost:8080');
 
-// This object holds the active connections for each device
 const devices = {};
 
 wss.on('connection', (ws) => {
     let deviceId = null;
 
     ws.on('message', (message) => {
+        // Handle message as a string or buffer
         if (typeof message === 'string') {
-            const msg = message.trim();
-
+            // Handle string commands
             if (!deviceId) {
-                // First message from a client should be the device ID
-                deviceId = msg;
+                deviceId = message; // First message is the device ID
                 devices[deviceId] = devices[deviceId] || [];
-                devices[deviceId].push({ ws });
                 console.log(`Device ${deviceId} connected.`);
                 ws.send(`Welcome device ${deviceId}`);
-            } else if (msg.startsWith("REQUEST_AUDIO:")) {
-                // Handle audio stream request
-                const requestedDeviceId = msg.split(":")[1];
+            } else if (message.startsWith("REQUEST_AUDIO:")) {
+                const requestedDeviceId = message.split(":")[1];
+                console.log(`Audio stream requested for device: ${requestedDeviceId}`);
                 if (devices[requestedDeviceId]) {
-                    console.log(`Audio stream requested for device: ${requestedDeviceId}`);
+                    devices[requestedDeviceId].push({ ws });
                     ws.send(`Streaming audio for device: ${requestedDeviceId}`);
-
-                    // Simulate sending test audio data
-                    const testAudioBuffer = Buffer.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
-                    const interval = setInterval(() => {
-                        if (ws.readyState === WebSocket.OPEN) {
-                            ws.send(testAudioBuffer);
-                            console.log('Sent test binary audio data.');
-                        } else {
-                            clearInterval(interval);
-                        }
-                    }, 1000);
                 } else {
                     ws.send(`Device ${requestedDeviceId} is not available.`);
                 }
             } else {
-                console.log('Unexpected string message received:', msg);
+                console.log('Unexpected string message:', message);
             }
         } else if (Buffer.isBuffer(message)) {
-            // Received raw binary audio data
-            console.log(`Received binary audio data from device ${deviceId}:`, message);
+            // Handle binary audio data
+            if (deviceId) {
+                console.log(`Received binary audio data from device ${deviceId}:`, message);
 
-            // Broadcast the raw audio data to clients requesting this device's stream
-            if (deviceId && devices[deviceId]) {
-                devices[deviceId].forEach(client => {
-                    if (client.ws !== ws && client.ws.readyState === WebSocket.OPEN) {
-                        client.ws.send(message); // Forward the binary data
-                    }
-                });
+                // Broadcast binary data to all clients requesting this device's stream
+                if (devices[deviceId]) {
+                    devices[deviceId].forEach(client => {
+                        if (client.ws.readyState === WebSocket.OPEN) {
+                            client.ws.send(message); // Forward raw audio data
+                        }
+                    });
+                }
+            } else {
+                console.warn('Received binary data from an unidentified device.');
             }
         } else {
-            console.log('Unknown message type received.');
+            console.log('Unknown message type received:', message);
         }
     });
 
-    // Handle client disconnections
+    // Handle disconnection
     ws.on('close', () => {
-        if (deviceId && devices[deviceId]) {
+        if (deviceId) {
             devices[deviceId] = devices[deviceId].filter(client => client.ws !== ws);
             if (devices[deviceId].length === 0) {
                 delete devices[deviceId];
@@ -72,16 +61,8 @@ wss.on('connection', (ws) => {
         }
     });
 
-    // Handle WebSocket errors
+    // Handle errors
     ws.on('error', (error) => {
-        console.log(`Error with device ${deviceId}:`, error);
-    });
-});
-
-// Graceful server shutdown
-process.on('SIGINT', () => {
-    console.log('Shutting down WebSocket server...');
-    wss.close(() => {
-        process.exit(0);
+        console.log(`Error on WebSocket: ${error}`);
     });
 });
