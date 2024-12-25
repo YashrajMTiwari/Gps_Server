@@ -8,37 +8,41 @@ const devices = {};
 
 wss.on('connection', (ws) => {
     let deviceId = null;
+ws.on('message', (message) => {
+    const msg = message.toString();
 
-    ws.on('message', (message) => {
-        const msg = message.toString();
-
-        if (!deviceId) {
-            // First message should be the device ID
-            deviceId = msg;
-            devices[deviceId] = devices[deviceId] || [];
-            console.log(`Device ${deviceId} connected.`);
-            ws.send(`Welcome device ${deviceId}`);
-        } else if (msg.startsWith("REQUEST_AUDIO:")) {
-            // Handle audio stream request
-            const requestedDeviceId = msg.split(":")[1];
-            if (devices[requestedDeviceId]) {
-                // Device is available, start streaming audio to the client
-                devices[requestedDeviceId].forEach(client => {
-                    client.ws.send(`Streaming audio for device: ${requestedDeviceId}`);
-                });
-            } else {
-                ws.send(`Device ${requestedDeviceId} is not available.`);
-            }
+    if (!deviceId) {
+        // First message should be the device ID
+        deviceId = msg;
+        devices[deviceId] = devices[deviceId] || [];
+        console.log(`Device ${deviceId} connected.`);
+        ws.send(`Welcome device ${deviceId}`);
+    } else if (msg.startsWith("REQUEST_AUDIO:")) {
+        // Handle audio stream request
+        const requestedDeviceId = msg.split(":")[1];
+        if (devices[requestedDeviceId]) {
+            console.log(`Audio stream requested for device: ${requestedDeviceId}`);
+            ws.send(`Streaming audio for device: ${requestedDeviceId}`);
         } else {
-            // Audio data message: forward it to the requesting client
-            if (Buffer.isBuffer(msg)) {
-                // Send raw binary audio data (WAV or PCM)
-                ws.send(msg);
-            } else {
-                console.log('Expected binary, but received:', msg);
-            }
+            ws.send(`Device ${requestedDeviceId} is not available.`);
         }
-    });
+    } else if (Buffer.isBuffer(message)) {
+        // **This is the raw audio data.**
+        console.log('Received binary audio data:', message);
+        
+        // Broadcast to all clients requesting this device's stream
+        if (devices[deviceId]) {
+            devices[deviceId].forEach(client => {
+                if (client.ws.readyState === WebSocket.OPEN) {
+                    client.ws.send(message); // Forward raw audio data
+                }
+            });
+        }
+    } else {
+        console.log('Unexpected message received:', msg);
+    }
+});
+
 
     // Handle disconnections
     ws.on('close', () => {
