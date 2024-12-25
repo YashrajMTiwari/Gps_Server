@@ -18,17 +18,9 @@ wss.on('connection', (ws) => {
                 devices[deviceId] = devices[deviceId] || [];
                 console.log(`Device ${deviceId} connected.`);
                 ws.send(`Welcome device ${deviceId}`);
-            } else if (message.startsWith("REQUEST_AUDIO:")) {
-                const requestedDeviceId = message.split(":")[1];
-                console.log(`Audio stream requested for device: ${requestedDeviceId}`);
-                if (devices[requestedDeviceId]) {
-                    devices[requestedDeviceId].push({ ws });
-                    ws.send(`Streaming audio for device: ${requestedDeviceId}`);
-                } else {
-                    ws.send(`Device ${requestedDeviceId} is not available.`);
-                }
             } else {
-                console.log('Unexpected string message:', message);
+                // If device ID is already set, handle other messages such as audio data requests
+                console.log('Unexpected message received after device ID:', message);
             }
         } else if (Buffer.isBuffer(message)) {
             // Handle binary audio data
