@@ -1,20 +1,25 @@
 const WebSocket = require('ws');
+const fs = require('fs');
 const wss = new WebSocket.Server({ port: 8080 });
 
 wss.on('connection', (ws) => {
     console.log('Device connected.');
 
     ws.on('message', (message) => {
-        console.log(`Received message: ${message}`);
-
-        // First message is expected to be the deviceId
-        if (!ws.deviceId) {
-            ws.deviceId = message;
-            ws.send('ACK'); // Send acknowledgment
-            console.log(`Acknowledged device: ${ws.deviceId}`);
-        } else if (message === 'REQUEST_AUDIO') {
-            console.log(`Audio requested for device: ${ws.deviceId}`);
-            ws.send('START_AUDIO'); // Request device to start audio streaming
+        try {
+            if (!ws.deviceId) {
+                ws.deviceId = message;
+                ws.send('ACK'); // Acknowledge device ID
+                console.log(`Acknowledged device: ${ws.deviceId}`);
+            } else {
+                const data = JSON.parse(message);
+                if (data.type === 'audio') {
+                    const audioBuffer = Buffer.from(data.data, 'base64');
+                    fs.appendFileSync('audio.raw', audioBuffer); // Save to file
+                }
+            }
+        } catch (error) {
+            console.error('Error processing message:', error);
         }
     });
 
