@@ -4,6 +4,7 @@ const wss = new WebSocket.Server({ port: process.env.PORT || 8080 });
 console.log('WebSocket server is listening on ws://localhost:8080');
 
 const devices = {};
+const clients = {};
 
 wss.on('connection', (ws) => {
     let deviceId = null;  // Device ID will be assigned after the first message
@@ -11,45 +12,51 @@ wss.on('connection', (ws) => {
 
     ws.on('message', (message) => {
         if (typeof message === 'string') {
-            // Handle string messages, such as device ID or audio requests
-            if (!deviceId) {
-                // First message should be the device ID
+            if (message.startsWith('REQUEST_AUDIO:')) {
+                // Handle client requests for audio
+                const requestedDeviceId = message.split(':')[1];
+                console.log(`Client requested audio for device ${requestedDeviceId}`);
+
+                if (!devices[requestedDeviceId]) {
+                    ws.send('Device not connected.');
+                } else {
+                    // Store the client connection for this device
+                    clients[requestedDeviceId] = clients[requestedDeviceId] || [];
+                    clients[requestedDeviceId].push({ ws });
+
+                    // Notify the device to start sending audio
+                    devices[requestedDeviceId].ws.send('START_AUDIO');
+                }
+            } else if (!deviceId) {
+                // First message from a device should be its ID
                 deviceId = message;
-                devices[deviceId] = devices[deviceId] || [];
+                devices[deviceId] = { ws };
                 console.log(`Device ${deviceId} connected.`);
                 ws.send(`Welcome device ${deviceId}`);
             } else {
-                // If device ID is already set, handle other messages such as audio data requests
-                console.log('Unexpected message received after device ID:', message);
+                console.log('Unexpected message:', message);
             }
         } else if (Buffer.isBuffer(message)) {
             // Handle binary audio data
-            if (deviceId) {
-                console.log(`Received binary audio data from device ${deviceId}:`, message);
+            if (deviceId && clients[deviceId]) {
+                console.log(`Received binary audio data from device ${deviceId}`);
 
-                // Broadcast the binary data to all clients requesting this device's stream
-                if (devices[deviceId]) {
-                    devices[deviceId].forEach(client => {
-                        if (client.ws.readyState === WebSocket.OPEN) {
-                            client.ws.send(message); // Forward raw audio data
-                        }
-                    });
-                }
+                // Relay audio data to all clients requesting this device's stream
+                clients[deviceId].forEach(client => {
+                    if (client.ws.readyState === WebSocket.OPEN) {
+                        client.ws.send(message);
+                    }
+                });
             } else {
-                console.warn('Received binary data from an unidentified device.');
-                ws.send('Device ID not set. Please send your device ID first.');
+                console.warn('Received binary data from an unidentified or unrequested device.');
             }
-        } else {
-            console.log('Unknown message type received:', message);
         }
     });
 
     ws.on('close', () => {
         if (deviceId) {
-            devices[deviceId] = devices[deviceId].filter(client => client.ws !== ws);
-            if (devices[deviceId].length === 0) {
-                delete devices[deviceId];
-            }
+            delete devices[deviceId];
+            delete clients[deviceId];
             console.log(`Device ${deviceId} disconnected.`);
         }
     });
