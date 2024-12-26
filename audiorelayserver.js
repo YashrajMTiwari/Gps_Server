@@ -3,7 +3,7 @@ const express = require('express');
 
 // Create an Express app for HTTP requests (optional)
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 // Create a WebSocket server
 const wss = new WebSocket.Server({ noServer: true });
@@ -89,9 +89,10 @@ function requestAudioFromDevice(deviceId, ws) {
 // Example route to simulate a user requesting audio
 app.get('/request-audio/:deviceId', (req, res) => {
   const { deviceId } = req.params;
-  const userWs = new WebSocket(`ws://localhost:${port}`);
-
-  // Simulate a user WebSocket request for audio data from a device
+  
+  // Create a WebSocket connection to the actual server where devices are connected
+  const userWs = new WebSocket(`ws://audio-server-9xh3.onrender.com`); // Correct URL of the server
+  
   userWs.on('open', () => {
     requestAudioFromDevice(deviceId, userWs);
     res.send('Audio request sent to device');
@@ -100,5 +101,9 @@ app.get('/request-audio/:deviceId', (req, res) => {
   userWs.on('message', (message) => {
     console.log('Received audio data from device:', message);
     // Process or forward the audio data as needed
+  });
+
+  userWs.on('error', (error) => {
+    console.error('Error in WebSocket client:', error);
   });
 });
