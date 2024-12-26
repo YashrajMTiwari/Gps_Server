@@ -23,50 +23,24 @@ wss.on('connection', (ws) => {
 
   ws.on('message', (message) => {
     if (Buffer.isBuffer(message)) {
-      // Audio data received from Flutter device
       console.log('Received audio data');
-
-      // Find associated client and forward the audio data
-      for (const [deviceId, connection] of Object.entries(clients)) {
-        if (connection.device === ws && connection.client) {
-          connection.client.send(message); // Forward audio to the web client
-        }
-      }
     } else {
       try {
         const data = JSON.parse(message);
+        console.log('Message from client:', data);
 
         if (data.device_id) {
-          console.log(`Device ID ${data.device_id} registered`);
-          // Store device connection
-          if (!clients[data.device_id]) {
-            clients[data.device_id] = { device: ws, client: null };
-          }
+          console.log(`Device ID registered: ${data.device_id}`);
           ws.send(JSON.stringify({ status: 'connected', message: 'Device registered' }));
         }
 
-        if (data.request_audio && data.device_id) {
-          console.log(`Web client requesting audio from device ${data.device_id}`);
-          // Register web client for this device
-          if (clients[data.device_id]) {
-            clients[data.device_id].client = ws;
-          } else {
-            ws.send(JSON.stringify({ error: 'Device not found' }));
-          }
+        if (data.request_audio) {
+          console.log('Audio request received from web client');
         }
       } catch (error) {
-        console.error('Error processing message:', error);
-      }
-    }
-  });
-
-  ws.on('close', () => {
-    // Remove the connection when closed
-    for (const [deviceId, connection] of Object.entries(clients)) {
-      if (connection.device === ws || connection.client === ws) {
-        delete clients[deviceId];
-        console.log(`Connection closed for device ${deviceId}`);
+        console.error('Error parsing client message:', error);
       }
     }
   });
 });
+
