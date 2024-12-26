@@ -3,11 +3,26 @@ const express = require('express');
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+// Create the HTTP server that Express will listen to
+const server = app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+});
+
+// Set up WebSocket server
 const wss = new WebSocket.Server({ noServer: true });
 
 let deviceConnections = {};
 let audioRequests = {};
 
+// Upgrade HTTP request to WebSocket connection
+server.on('upgrade', (request, socket, head) => {
+  wss.handleUpgrade(request, socket, head, (ws) => {
+    wss.emit('connection', ws, request);
+  });
+});
+
+// WebSocket connection handler
 wss.on('connection', (ws, req) => {
   console.log('New device connected');
 
@@ -45,8 +60,4 @@ wss.on('connection', (ws, req) => {
       }
     }
   });
-});
-
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
 });
