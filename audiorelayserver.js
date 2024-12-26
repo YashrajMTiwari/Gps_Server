@@ -1,6 +1,5 @@
 const WebSocket = require('ws');
 const express = require('express');
-const fs = require('fs'); // Assuming you may want to send a static audio file
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -11,43 +10,63 @@ const server = app.listen(port, () => {
 // Set up WebSocket server
 const wss = new WebSocket.Server({ noServer: true });
 
-// Upgrade HTTP request to WebSocket connection
+let clients = {}; // Track client connections: { deviceId: { device, client } }
+
 server.on('upgrade', (request, socket, head) => {
   wss.handleUpgrade(request, socket, head, (ws) => {
     wss.emit('connection', ws, request);
   });
 });
 
-// WebSocket connection handler
-wss.on('connection', (ws, req) => {
-  console.log('New device connected');
-  
+wss.on('connection', (ws) => {
+  console.log('New connection established');
+
   ws.on('message', (message) => {
-    // Check if the message is a Buffer (binary audio data) or JSON
     if (Buffer.isBuffer(message)) {
+      // Audio data received from Flutter device
       console.log('Received audio data');
-      // Process and handle the audio data here (e.g., save it, send it back, etc.)
-      ws.send(message);  // Echo the received audio data back to the client as an example
+
+      // Find associated client and forward the audio data
+      for (const [deviceId, connection] of Object.entries(clients)) {
+        if (connection.device === ws && connection.client) {
+          connection.client.send(message); // Forward audio to the web client
+        }
+      }
     } else {
       try {
         const data = JSON.parse(message);
 
         if (data.device_id) {
           console.log(`Device ID ${data.device_id} registered`);
+          // Store device connection
+          if (!clients[data.device_id]) {
+            clients[data.device_id] = { device: ws, client: null };
+          }
           ws.send(JSON.stringify({ status: 'connected', message: 'Device registered' }));
+        }
 
-          // Handle the audio request from the client
-          if (data.request_audio === true) {
-            console.log('Audio request received, ready to send audio data');
+        if (data.request_audio && data.device_id) {
+          console.log(`Web client requesting audio from device ${data.device_id}`);
+          // Register web client for this device
+          if (clients[data.device_id]) {
+            clients[data.device_id].client = ws;
+          } else {
+            ws.send(JSON.stringify({ error: 'Device not found' }));
           }
         }
-      } catch (e) {
-        console.error('Error processing message:', e);
+      } catch (error) {
+        console.error('Error processing message:', error);
       }
     }
   });
 
   ws.on('close', () => {
-    console.log('Device disconnected');
+    // Remove the connection when closed
+    for (const [deviceId, connection] of Object.entries(clients)) {
+      if (connection.device === ws || connection.client === ws) {
+        delete clients[deviceId];
+        console.log(`Connection closed for device ${deviceId}`);
+      }
+    }
   });
 });
