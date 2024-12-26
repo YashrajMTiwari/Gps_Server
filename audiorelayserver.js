@@ -104,27 +104,4 @@ wss.on('connection', (ws, request) => {
   });
 });
 
-      console.error('Error parsing client message:', error);
-    }
-  });
-
-  // Handle connection closure
-  ws.on('close', () => {
-    console.log(`Connection closed for device_id: ${deviceId}`);
-    if (deviceId) {
-      if (isWebClient) {
-        delete webClients[deviceId];
-        console.log(`Web client with device_id: ${deviceId} disconnected.`);
-      } else {
-        delete clients[deviceId];
-        console.log(`Flutter device with device_id: ${deviceId} disconnected.`);
-      }
-    }
-  });
-
-  // Handle errors
-  ws.on('error', (err) => {
-    console.error(`WebSocket error for device_id: ${deviceId}:`, err);
-  });
-});
 
