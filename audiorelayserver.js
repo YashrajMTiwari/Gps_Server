@@ -26,26 +26,31 @@ wss.on('connection', (ws, request) => {
 
   // Handle WebSocket messages
   ws.on('message', (message) => {
-    if (Buffer.isBuffer(message)) {
-      console.log(`Received audio data from Flutter client with device_id: ${deviceId}`);
-      // Forward audio data to the respective web client
-      if (deviceId && webClients[deviceId]) {
-        webClients[deviceId].send(message);
-        console.log(`Forwarding audio data to web client for device_id: ${deviceId}`);
+    try {
+      // If the message is raw audio data (Buffer)
+      if (Buffer.isBuffer(message)) {
+        console.log(`Received audio data from Flutter client with device_id: ${deviceId}`);
+        
+        // Forward audio data to the respective web client if device_id exists
+        if (deviceId && webClients[deviceId]) {
+          webClients[deviceId].send(message);
+          console.log(`Forwarding audio data to web client for device_id: ${deviceId}`);
+        } else {
+          console.log(`No web client connected for device_id: ${deviceId}`);
+        }
       } else {
-        console.log(`No web client connected for device_id: ${deviceId}`);
-      }
-    } else {
-      try {
+        // Parse JSON message
         console.log('Raw message received:', message.toString());
         const data = JSON.parse(message);
 
+        // Handle device_id setup
         if (data.device_id) {
           if (!deviceId) {
             deviceId = data.device_id;
             console.log(`Device ID set to: ${deviceId}`);
           }
 
+          // Register as web client or flutter device
           if (data.isWebClient) {
             isWebClient = true;
             webClients[deviceId] = ws; // Register this connection as a web client
@@ -70,9 +75,9 @@ wss.on('connection', (ws, request) => {
             console.log(`No connected Flutter device for device_id: ${deviceId}`);
           }
         }
-      } catch (error) {
-        console.error('Error parsing client message:', error);
       }
+    } catch (error) {
+      console.error('Error parsing client message:', error);
     }
   });
 
