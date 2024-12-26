@@ -27,6 +27,9 @@ wss.on('connection', (ws, request) => {
   // Handle WebSocket messages
   ws.on('message', (message) => {
     try {
+      // Log received message
+      console.log('Raw message received:', message.toString());
+
       // If the message is raw audio data (Buffer)
       if (Buffer.isBuffer(message)) {
         console.log(`Received audio data from Flutter client with device_id: ${deviceId}`);
@@ -40,7 +43,6 @@ wss.on('connection', (ws, request) => {
         }
       } else {
         // Parse JSON message
-        console.log('Raw message received:', message.toString());
         const data = JSON.parse(message);
 
         // Handle device_id setup
@@ -100,3 +102,4 @@ wss.on('connection', (ws, request) => {
     console.error(`WebSocket error for device_id: ${deviceId}:`, err);
   });
 });
+
