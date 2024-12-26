@@ -44,11 +44,12 @@ wss.on('connection', (ws, request) => {
       } else {
         // Parse JSON message
         const data = JSON.parse(message);
+        console.log('Parsed message:', data);
 
-        // Handle device_id setup
+        // Handle device_id setup (this ensures deviceId is set properly)
         if (data.device_id) {
           if (!deviceId) {
-            deviceId = data.device_id;
+            deviceId = data.device_id;  // Assign deviceId
             console.log(`Device ID set to: ${deviceId}`);
           }
 
@@ -79,6 +80,30 @@ wss.on('connection', (ws, request) => {
         }
       }
     } catch (error) {
+      console.error('Error parsing client message:', error);
+    }
+  });
+
+  // Handle connection closure
+  ws.on('close', () => {
+    console.log(`Connection closed for device_id: ${deviceId}`);
+    if (deviceId) {
+      if (isWebClient) {
+        delete webClients[deviceId];
+        console.log(`Web client with device_id: ${deviceId} disconnected.`);
+      } else {
+        delete clients[deviceId];
+        console.log(`Flutter device with device_id: ${deviceId} disconnected.`);
+      }
+    }
+  });
+
+  // Handle errors
+  ws.on('error', (err) => {
+    console.error(`WebSocket error for device_id: ${deviceId}:`, err);
+  });
+});
+
       console.error('Error parsing client message:', error);
     }
   });
