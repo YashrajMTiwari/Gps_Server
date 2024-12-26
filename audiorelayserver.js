@@ -1,43 +1,24 @@
 const WebSocket = require('ws');
-const wss = new WebSocket.Server({ port: process.env.PORT || 8080 });
-
-console.log('WebSocket server is listening on ws://localhost:8080');
-
-const devices = {};
-const clients = {};
+const wss = new WebSocket.Server({ port: 8080 });
 
 wss.on('connection', (ws) => {
-    let deviceId = null;
+    console.log('Device connected.');
 
     ws.on('message', (message) => {
-        if (typeof message === 'string') {
-            if (!deviceId) {
-                deviceId = message; // First message is the deviceId
-                devices[deviceId] = devices[deviceId] || [];
-                devices[deviceId].push({ ws }); // Register device connection
-                console.log(`Device ${deviceId} connected.`);
-                ws.send(`Welcome device ${deviceId}`);
-            } else if (message.startsWith('REQUEST_AUDIO:')) {
-                const targetDeviceId = message.split(':')[1];
-                if (devices[targetDeviceId]) {
-                    devices[targetDeviceId].forEach(deviceClient => {
-                        if (deviceClient.ws.readyState === WebSocket.OPEN) {
-                            deviceClient.ws.send('START_AUDIO');
-                        }
-                    });
-                }
-            }
+        console.log(`Received message: ${message}`);
+
+        // First message is expected to be the deviceId
+        if (!ws.deviceId) {
+            ws.deviceId = message;
+            ws.send('ACK'); // Send acknowledgment
+            console.log(`Acknowledged device: ${ws.deviceId}`);
+        } else if (message === 'REQUEST_AUDIO') {
+            console.log(`Audio requested for device: ${ws.deviceId}`);
+            ws.send('START_AUDIO'); // Request device to start audio streaming
         }
     });
 
     ws.on('close', () => {
-        if (deviceId) {
-            devices[deviceId] = devices[deviceId].filter(client => client.ws !== ws);
-            if (devices[deviceId].length === 0) {
-                delete devices[deviceId];
-            }
-            console.log(`Device ${deviceId} disconnected.`);
-        }
+        console.log(`Device ${ws.deviceId} disconnected.`);
     });
 });
-
