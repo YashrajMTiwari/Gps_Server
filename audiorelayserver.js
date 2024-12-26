@@ -10,17 +10,15 @@ const server = app.listen(port, () => {
 // Set up WebSocket server
 const wss = new WebSocket.Server({ noServer: true });
 
-let flutterClients = {}; // Store Flutter device WebSocket connections by device_id
-let webClients = {}; // Store WebSocket clients by device_id
+let clients = {}; // Store WebSocket connections for Flutter devices
+let webClients = {}; // Store WebSocket connections for Web clients
 
-// Handle WebSocket upgrades
 server.on('upgrade', (request, socket, head) => {
   wss.handleUpgrade(request, socket, head, (ws) => {
     wss.emit('connection', ws, request);
   });
 });
 
-// Handle new WebSocket connections
 wss.on('connection', (ws, request) => {
   console.log('New connection established');
   let deviceId = null;
@@ -29,13 +27,12 @@ wss.on('connection', (ws, request) => {
   // Handle WebSocket messages
   ws.on('message', (message) => {
     try {
-      // Log the incoming message for debugging
+      // Log the raw message to help debug the issue
       console.log('Raw message received:', message.toString());
 
-      // Parse the incoming message
+      // Parse the incoming message as JSON
       const data = JSON.parse(message);
 
-      // Check if the message contains device_id
       if (data.device_id) {
         deviceId = data.device_id;
         console.log(`Device ID set to: ${deviceId}`);
@@ -55,7 +52,7 @@ wss.on('connection', (ws, request) => {
         }
       } else {
         console.log('Device ID missing in message');
-        // Handle missing device_id (could send an error response)
+        // Handle missing device_id (send an error response)
         ws.send(JSON.stringify({ status: 'error', message: 'Device ID is required' }));
       }
 
@@ -71,7 +68,8 @@ wss.on('connection', (ws, request) => {
       }
     } catch (error) {
       console.error('Error parsing client message:', error);
-      ws.send(JSON.stringify({ status: 'error', message: 'Failed to parse message' }));
+      // Send an error message to the client
+      ws.send(JSON.stringify({ status: 'error', message: 'Failed to parse message', error: error.message }));
     }
   });
 
