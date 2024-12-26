@@ -6,12 +6,15 @@ wss.on('connection', (ws) => {
 
     ws.on('message', (message) => {
         console.log('[Signaling Server] Message received:', message);
-        // Broadcast SDP/ICE to the other peer
-        wss.clients.forEach((client) => {
-            if (client !== ws && client.readyState === WebSocket.OPEN) {
-                client.send(message);
-            }
-        });
+        
+        // Handle different messages from the client
+        if (message === 'START_AUDIO') {
+            ws.send('START_AUDIO'); // Tell the client to start streaming audio
+        } else if (Buffer.isBuffer(message)) {
+            // Handle received audio data (raw bytes)
+            console.log('Received audio data:', message.length);
+            // You can process the audio here (e.g., play, save, or forward to another client)
+        }
     });
 
     ws.on('close', () => {
