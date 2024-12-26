@@ -1,6 +1,6 @@
 const WebSocket = require('ws');
 const express = require('express');
-const fs = require('fs'); // Assuming you're sending an audio file
+const fs = require('fs'); // Assuming you may want to send a static audio file
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -23,28 +23,27 @@ wss.on('connection', (ws, req) => {
   console.log('New device connected');
   
   ws.on('message', (message) => {
-    try {
-      const data = JSON.parse(message);
+    // Check if the message is a Buffer (binary audio data) or JSON
+    if (Buffer.isBuffer(message)) {
+      console.log('Received audio data');
+      // Process and handle the audio data here (e.g., save it, send it back, etc.)
+      ws.send(message);  // Echo the received audio data back to the client as an example
+    } else {
+      try {
+        const data = JSON.parse(message);
 
-      if (data.device_id) {
-        console.log(`Device ID ${data.device_id} registered`);
-        ws.send(JSON.stringify({ status: 'connected', message: 'Device registered' }));
+        if (data.device_id) {
+          console.log(`Device ID ${data.device_id} registered`);
+          ws.send(JSON.stringify({ status: 'connected', message: 'Device registered' }));
 
-        // Simulate sending audio data after device registration
-        if (data.request_audio) {
-          // Example: Read an audio file and send it as a binary Buffer
-          fs.readFile('path/to/audio/file.mp3', (err, audioData) => {
-            if (err) {
-              console.error('Error reading audio file:', err);
-            } else {
-              // Send audio data as binary
-              ws.send(audioData);
-            }
-          });
+          // Handle the audio request from the client
+          if (data.request_audio === true) {
+            console.log('Audio request received, ready to send audio data');
+          }
         }
+      } catch (e) {
+        console.error('Error processing message:', e);
       }
-    } catch (e) {
-      console.error('Error processing message', e);
     }
   });
 
