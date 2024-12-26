@@ -10,8 +10,8 @@ const server = app.listen(port, () => {
 // Set up WebSocket server
 const wss = new WebSocket.Server({ noServer: true });
 
-let clients = {}; // { deviceId: WebSocket } - Flutter devices
-let webClients = {}; // { deviceId: WebSocket } - Web clients
+let clients = {}; // Track Flutter client connections: { deviceId: WebSocket }
+let webClients = {}; // Track WebSocket connections for web clients
 
 server.on('upgrade', (request, socket, head) => {
   wss.handleUpgrade(request, socket, head, (ws) => {
@@ -20,74 +20,76 @@ server.on('upgrade', (request, socket, head) => {
 });
 
 wss.on('connection', (ws, request) => {
-  console.log('New WebSocket connection established');
+  console.log('New connection established');
   let deviceId = null;
   let isWebClient = false;
 
+  // Handle WebSocket messages
   ws.on('message', (message) => {
     if (Buffer.isBuffer(message)) {
-      // Binary data from Flutter device (audio data)
+      // Handle binary data (audio data)
       console.log(`Received audio data from Flutter client with device_id: ${deviceId}`);
 
       if (deviceId && webClients[deviceId]) {
-        webClients[deviceId].send(message); // Forward audio to web client
+        webClients[deviceId].send(message); // Send audio to the web client
         console.log(`Forwarded audio data to web client for device_id: ${deviceId}`);
       } else {
-        console.log(`No web client connected for device_id: ${deviceId}`);
+        console.error(`No web client connected for device_id: ${deviceId}`);
       }
     } else {
-      // JSON message (text-based)
+      // Handle JSON messages
       try {
         const data = JSON.parse(message);
-        console.log('Received message:', data);
 
         if (data.device_id) {
           deviceId = data.device_id;
+          console.log(`Device ID received and registered: ${deviceId}`);
 
+          // Check if it's a Web client or Flutter client
           if (data.isWebClient) {
-            // Register web client
             isWebClient = true;
             webClients[deviceId] = ws;
             console.log(`Web client registered with device_id: ${deviceId}`);
-            ws.send(JSON.stringify({ status: 'connected', message: `Web client ${deviceId} registered.` }));
+            ws.send(JSON.stringify({ status: 'connected', device_id: deviceId }));
           } else {
-            // Register Flutter device
             clients[deviceId] = ws;
             console.log(`Flutter device registered with device_id: ${deviceId}`);
-            ws.send(JSON.stringify({ status: 'connected', message: `Flutter device ${deviceId} registered.` }));
+            ws.send(JSON.stringify({ status: 'connected', device_id: deviceId }));
           }
         }
 
-        if (data.request_audio && isWebClient && deviceId) {
-          // Web client requests audio from Flutter device
+        // Handle audio request from a web client
+        if (data.request_audio && isWebClient) {
           const flutterClient = clients[deviceId];
           if (flutterClient) {
             flutterClient.send(JSON.stringify({ request_audio: true }));
-            console.log(`Requested Flutter device ${deviceId} to start audio streaming.`);
+            console.log(`Audio request sent to Flutter device with device_id: ${deviceId}`);
           } else {
-            console.log(`No Flutter device connected for device_id: ${deviceId}`);
+            console.error(`No connected Flutter device for device_id: ${deviceId}`);
           }
         }
       } catch (error) {
-        console.error('Error parsing message:', error);
+        console.error('Error parsing client message:', error);
       }
     }
   });
 
+  // Handle connection closure
   ws.on('close', () => {
     console.log(`Connection closed for device_id: ${deviceId}`);
     if (deviceId) {
       if (isWebClient) {
         delete webClients[deviceId];
-        console.log(`Web client disconnected for device_id: ${deviceId}`);
+        console.log(`Web client with device_id: ${deviceId} disconnected.`);
       } else {
         delete clients[deviceId];
-        console.log(`Flutter device disconnected for device_id: ${deviceId}`);
+        console.log(`Flutter device with device_id: ${deviceId} disconnected.`);
       }
     }
   });
 
-  ws.on('error', (error) => {
-    console.error(`Error for device_id: ${deviceId}:`, error);
+  // Handle errors
+  ws.on('error', (err) => {
+    console.error(`WebSocket error for device_id: ${deviceId}:`, err);
   });
 });
