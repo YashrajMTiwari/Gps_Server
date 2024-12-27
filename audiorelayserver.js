@@ -86,4 +86,4 @@ wss.on('connection', (ws, request) => {
   ws.on('error', (err) => {
     console.error(WebSocket error for device_id: ${deviceId}:, err);
   });
-})
+});
