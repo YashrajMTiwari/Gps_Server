@@ -25,68 +25,48 @@ wss.on('connection', (ws, request) => {
   let isWebClient = false;
 
   ws.on('message', (message) => {
-    if (Buffer.isBuffer(message)) {
-      // Handle binary audio data
-      console.log('Received binary audio data:', message.length, 'bytes');
-      
-      // If the message is binary audio data, handle it accordingly
-      // You can forward this data to the appropriate web client or process it
-      if (deviceId && !isWebClient) {
+    try {
+      console.log('Raw message received:', message.toString());
+      const data = JSON.parse(message);
+
+      if (data.device_id) {
+        deviceId = data.device_id;
+        if (data.isWebClient) {
+          isWebClient = true;
+          webClients[deviceId] = ws;
+          console.log(`Web client registered with device ID: ${deviceId}`);
+          ws.send(JSON.stringify({ status: 'connected', message: `Web client ${deviceId} registered.` }));
+        } else {
+          clients[deviceId] = ws;
+          console.log(`Flutter device registered with device ID: ${deviceId}`);
+          ws.send(JSON.stringify({ status: 'connected', message: `Flutter device ${deviceId} registered.` }));
+        }
+      }
+
+      if (data.request_audio && data.flutter_device_id && isWebClient) {
+        const flutterClient = clients[data.flutter_device_id];
+        if (flutterClient) {
+          flutterClient.send(JSON.stringify({ request_audio: true }));
+          console.log(`Audio request sent to Flutter device with device_id: ${data.flutter_device_id}`);
+          ws.send(JSON.stringify({ status: 'audio_request_forwarded', flutter_device_id: data.flutter_device_id }));
+        } else {
+          console.log(`No connected Flutter device for device_id: ${data.flutter_device_id}`);
+          ws.send(JSON.stringify({ status: 'error', message: `No Flutter device connected with device_id: ${data.flutter_device_id}` }));
+        }
+      }
+
+      if (data.audio_data && !isWebClient) {
         const webClient = webClients[deviceId];
         if (webClient) {
-          webClient.send(message); // Send binary data to the web client
-          console.log(`Audio data forwarded to Web client with device_id: ${deviceId}`);
+          webClient.send(JSON.stringify({ audio_data: data.audio_data }));
+          console.log(`Audio data sent to Web client with device_id: ${deviceId}`);
         } else {
           console.log(`No Web client connected for device_id: ${deviceId}`);
         }
-      } else {
-        console.log('Binary data received from a Web client. Ignoring it as it is not expected from the Web client.');
       }
-    } else {
-      // Handle JSON data (control messages)
-      try {
-        console.log('Raw message received:', message.toString());
-        const data = JSON.parse(message);
-
-        if (data.device_id) {
-          deviceId = data.device_id;
-          if (data.isWebClient) {
-            isWebClient = true;
-            webClients[deviceId] = ws;
-            console.log(`Web client registered with device ID: ${deviceId}`);
-            ws.send(JSON.stringify({ status: 'connected', message: `Web client ${deviceId} registered.` }));
-          } else {
-            clients[deviceId] = ws;
-            console.log(`Flutter device registered with device ID: ${deviceId}`);
-            ws.send(JSON.stringify({ status: 'connected', message: `Flutter device ${deviceId} registered.` }));
-          }
-        }
-
-        if (data.request_audio && data.flutter_device_id && isWebClient) {
-          const flutterClient = clients[data.flutter_device_id];
-          if (flutterClient) {
-            flutterClient.send(JSON.stringify({ request_audio: true }));
-            console.log(`Audio request sent to Flutter device with device_id: ${data.flutter_device_id}`);
-            ws.send(JSON.stringify({ status: 'audio_request_forwarded', flutter_device_id: data.flutter_device_id }));
-          } else {
-            console.log(`No connected Flutter device for device_id: ${data.flutter_device_id}`);
-            ws.send(JSON.stringify({ status: 'error', message: `No Flutter device connected with device_id: ${data.flutter_device_id}` }));
-          }
-        }
-
-        if (data.audio_data && !isWebClient) {
-          const webClient = webClients[deviceId];
-          if (webClient) {
-            webClient.send(JSON.stringify({ audio_data: data.audio_data }));
-            console.log(`Audio data sent to Web client with device_id: ${deviceId}`);
-          } else {
-            console.log(`No Web client connected for device_id: ${deviceId}`);
-          }
-        }
-      } catch (error) {
-        console.error('Error parsing client message:', error);
-        ws.send(JSON.stringify({ status: 'error', message: 'Failed to parse message', error: error.message }));
-      }
+    } catch (error) {
+      console.error('Error parsing client message:', error);
+      ws.send(JSON.stringify({ status: 'error', message: 'Failed to parse message', error: error.message }));
     }
   });
 
