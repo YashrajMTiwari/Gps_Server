@@ -25,23 +25,25 @@ wss.on('connection', (ws, request) => {
   let isWebClient = false;
 
   ws.on('message', (message) => {
-    // Handle raw binary data
+    // Check if the message is raw binary data (Buffer)
     if (Buffer.isBuffer(message)) {
-      console.log('Binary data received:', message.length, 'bytes');
+      console.log('Received raw binary data:', message.length, 'bytes');
+      // Forward raw binary audio data to the corresponding Web client if connected
       if (deviceId && clients[deviceId] && !isWebClient) {
         const webClient = webClients[deviceId];
         if (webClient) {
-          webClient.send(message); // Forward binary data to the Web client
-          console.log(`Forwarded binary data to Web client for device_id: ${deviceId}`);
+          webClient.send(message); // Forward the raw audio data to the Web client
+          console.log(`Forwarded raw binary audio data to Web client with device_id: ${deviceId}`);
         } else {
           console.log(`No Web client connected for device_id: ${deviceId}`);
         }
       }
-      return; // Skip JSON parsing for binary data
+      return; // Exit after handling raw binary data
     }
 
-    // Handle JSON messages
+    // Otherwise, process as JSON message
     try {
+      console.log('Raw message received:', message.toString());
       const data = JSON.parse(message);
 
       if (data.device_id) {
@@ -58,6 +60,7 @@ wss.on('connection', (ws, request) => {
         }
       }
 
+      // Audio request from Web client
       if (data.request_audio && data.flutter_device_id && isWebClient) {
         const flutterClient = clients[data.flutter_device_id];
         if (flutterClient) {
@@ -70,6 +73,7 @@ wss.on('connection', (ws, request) => {
         }
       }
 
+      // Audio data forwarding from Flutter to Web client
       if (data.audio_data && !isWebClient) {
         const webClient = webClients[deviceId];
         if (webClient) {
