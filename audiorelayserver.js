@@ -55,18 +55,24 @@ wss.on('connection', (ws, request) => {
         }
       }
 
-      if (data.audio_data && !isWebClient) {
-        const webClient = webClients[deviceId];
-        if (webClient) {
-          webClient.send(JSON.stringify({ audio_data: data.audio_data }));
-          console.log(`Audio data sent to Web client with device_id: ${deviceId}`);
-        } else {
-          console.log(`No Web client connected for device_id: ${deviceId}`);
-        }
-      }
     } catch (error) {
-      console.error('Error parsing client message:', error);
-      ws.send(JSON.stringify({ status: 'error', message: 'Failed to parse message', error: error.message }));
+      // Handling raw audio data (non-JSON)
+      if (message instanceof Buffer) {
+        console.log('Received raw audio data:', message);
+        // Forwarding the raw audio data to the Web client
+        if (!isWebClient) {
+          const webClient = webClients[deviceId];
+          if (webClient) {
+            webClient.send(message);
+            console.log(`Audio data sent to Web client with device_id: ${deviceId}`);
+          } else {
+            console.log(`No Web client connected for device_id: ${deviceId}`);
+          }
+        }
+      } else {
+        console.error('Error parsing client message:', error);
+        ws.send(JSON.stringify({ status: 'error', message: 'Failed to parse message', error: error.message }));
+      }
     }
   });
 
