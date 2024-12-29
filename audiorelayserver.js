@@ -7,10 +7,11 @@ const server = app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
 
+// Set up WebSocket server
 const wss = new WebSocket.Server({ noServer: true });
 
-let clients = {}; 
-let webClients = {}; 
+let clients = {}; // Store WebSocket connections for Flutter devices
+let webClients = {}; // Store WebSocket connections for Web clients
 
 server.on('upgrade', (request, socket, head) => {
   wss.handleUpgrade(request, socket, head, (ws) => {
@@ -24,6 +25,21 @@ wss.on('connection', (ws, request) => {
   let isWebClient = false;
 
   ws.on('message', (message) => {
+
+    if (ArrayBuffer.isBuffer(message)) {
+      console.log('Recived raw binary data:', message.length, 'bytes');
+
+      if (deviceId && clients[deviceId] && !webClient) {
+        const webClient = webClients[deviceId];
+        if (webClient) {
+          webClient.send(message);
+          console.log('Send the raw data to web client');
+        } else {
+          console.log('No web client');
+        }
+      }
+      return;
+    }
     try {
       console.log('Raw message received:', message.toString());
       const data = JSON.parse(message);
