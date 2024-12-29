@@ -26,7 +26,7 @@ wss.on('connection', (ws, request) => {
 
   ws.on('message', (message) => {
 
-    if (ArrayBuffer.isBuffer(message)) {
+    if (Buffer.isBuffer(message)) {
       console.log('Recived raw binary data:', message.length, 'bytes');
 
       if (deviceId && clients[deviceId] && !webClient) {
