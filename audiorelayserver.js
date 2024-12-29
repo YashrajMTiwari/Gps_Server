@@ -25,22 +25,6 @@ wss.on('connection', (ws, request) => {
   let isWebClient = false;
 
   ws.on('message', (message) => {
-    // Check if the message is binary
-    if (Buffer.isBuffer(message)) {
-      console.log('Binary data received:', message.length, 'bytes');
-      if (deviceId && clients[deviceId] && !isWebClient) {
-        const webClient = webClients[deviceId];
-        if (webClient) {
-          webClient.send(message); // Forward binary audio data to the web client
-          console.log(`Forwarded binary data to Web client for device_id: ${deviceId}`);
-        } else {
-          console.log(`No Web client connected for device_id: ${deviceId}`);
-        }
-      }
-      return; // Skip JSON parsing for binary data
-    }
-
-    // Handle text messages (assume JSON)
     try {
       console.log('Raw message received:', message.toString());
       const data = JSON.parse(message);
@@ -71,6 +55,15 @@ wss.on('connection', (ws, request) => {
         }
       }
 
+      if (data.audio_data && !isWebClient) {
+        const webClient = webClients[deviceId];
+        if (webClient) {
+          webClient.send(JSON.stringify({ audio_data: data.audio_data }));
+          console.log(`Audio data sent to Web client with device_id: ${deviceId}`);
+        } else {
+          console.log(`No Web client connected for device_id: ${deviceId}`);
+        }
+      }
     } catch (error) {
       console.error('Error parsing client message:', error);
       ws.send(JSON.stringify({ status: 'error', message: 'Failed to parse message', error: error.message }));
