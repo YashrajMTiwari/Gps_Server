@@ -26,7 +26,7 @@ wss.on('connection', (ws, request) => {
 
   ws.on('message', (message) => {
     if (message instanceof Buffer) {
-      // This is raw binary audio data
+      // Raw binary audio data received from Flutter device
       console.log('Received raw audio data:', message.length);
       
       if (!isWebClient) {
@@ -39,7 +39,7 @@ wss.on('connection', (ws, request) => {
         }
       }
     } else {
-      // This is a JSON message (e.g., device registration or audio request)
+      // Handling JSON messages (e.g., device registration or audio request)
       try {
         const data = JSON.parse(message);
         console.log('Received JSON message:', data);
@@ -47,11 +47,13 @@ wss.on('connection', (ws, request) => {
         if (data.device_id) {
           deviceId = data.device_id;
           if (data.isWebClient) {
+            // Register Web client
             isWebClient = true;
             webClients[deviceId] = ws;
             console.log(`Web client registered with device ID: ${deviceId}`);
             ws.send(JSON.stringify({ status: 'connected', message: `Web client ${deviceId} registered.` }));
           } else {
+            // Register Flutter client
             clients[deviceId] = ws;
             console.log(`Flutter device registered with device ID: ${deviceId}`);
             ws.send(JSON.stringify({ status: 'connected', message: `Flutter device ${deviceId} registered.` }));
@@ -59,6 +61,7 @@ wss.on('connection', (ws, request) => {
         }
 
         if (data.request_audio && data.flutter_device_id && isWebClient) {
+          // Forward audio request to Flutter device
           const flutterClient = clients[data.flutter_device_id];
           if (flutterClient) {
             flutterClient.send(JSON.stringify({ request_audio: true }));
