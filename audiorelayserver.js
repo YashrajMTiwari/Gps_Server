@@ -25,21 +25,6 @@ wss.on('connection', (ws, request) => {
   let isWebClient = false;
 
   ws.on('message', (message) => {
-
-    if (Buffer.isBuffer(message)) {
-      console.log('Recived raw binary data:', message.length, 'bytes');
-
-      if (deviceId && clients[deviceId] && !webClient) {
-        const webClient = webClients[deviceId];
-        if (webClient) {
-          webClient.send(message);
-          console.log('Send the raw data to web client');
-        } else {
-          console.log('No web client');
-        }
-      }
-      return;
-    }
     try {
       console.log('Raw message received:', message.toString());
       const data = JSON.parse(message);
