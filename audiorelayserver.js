@@ -25,7 +25,7 @@ wss.on('connection', (ws, request) => {
   let isWebClient = false;
 
   ws.on('message', (message) => {
-    // New Logic for Raw Binary Data
+    // Handle raw binary data
     if (Buffer.isBuffer(message)) {
       console.log('Binary data received:', message.length, 'bytes');
       if (deviceId && clients[deviceId] && !isWebClient) {
@@ -40,9 +40,8 @@ wss.on('connection', (ws, request) => {
       return; // Skip JSON parsing for binary data
     }
 
-    // Original JSON Parsing Logic
+    // Handle JSON messages
     try {
-      console.log('Raw message received:', message.toString());
       const data = JSON.parse(message);
 
       if (data.device_id) {
@@ -103,4 +102,3 @@ wss.on('connection', (ws, request) => {
     console.error(`WebSocket error for device_id: ${deviceId}:`, err);
   });
 });
-  
