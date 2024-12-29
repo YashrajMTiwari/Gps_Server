@@ -30,6 +30,7 @@ wss.on('connection', (ws, request) => {
       console.log('Received raw audio data:', message.length);
       
       if (!isWebClient) {
+        // Send the audio data to the corresponding Web client
         const webClient = webClients[deviceId];
         if (webClient) {
           webClient.send(message); // Forward the audio data to the Web client
@@ -39,7 +40,7 @@ wss.on('connection', (ws, request) => {
         }
       }
     } else {
-      // Handling JSON messages (e.g., device registration or audio request)
+      // Handle JSON messages (e.g., device registration or audio request)
       try {
         const data = JSON.parse(message);
         console.log('Received JSON message:', data);
