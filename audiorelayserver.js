@@ -7,11 +7,10 @@ const server = app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
 
-// Set up WebSocket server
 const wss = new WebSocket.Server({ noServer: true });
 
-let clients = {}; // Store WebSocket connections for Flutter devices
-let webClients = {}; // Store WebSocket connections for Web clients
+let clients = {}; 
+let webClients = {}; 
 
 server.on('upgrade', (request, socket, head) => {
   wss.handleUpgrade(request, socket, head, (ws) => {
@@ -25,23 +24,6 @@ wss.on('connection', (ws, request) => {
   let isWebClient = false;
 
   ws.on('message', (message) => {
-    // Check if the message is raw binary data (Buffer)
-    if (Buffer.isBuffer(message)) {
-      console.log('Received raw binary data:', message.length, 'bytes');
-      // Forward raw binary audio data to the corresponding Web client if connected
-      if (deviceId && clients[deviceId] && !isWebClient) {
-        const webClient = webClients[deviceId];
-        if (webClient) {
-          webClient.send(message); // Forward the raw audio data to the Web client
-          console.log(`Forwarded raw binary audio data to Web client with device_id: ${deviceId}`);
-        } else {
-          console.log(`No Web client connected for device_id: ${deviceId}`);
-        }
-      }
-      return; // Exit after handling raw binary data
-    }
-
-    // Otherwise, process as JSON message
     try {
       console.log('Raw message received:', message.toString());
       const data = JSON.parse(message);
@@ -60,7 +42,6 @@ wss.on('connection', (ws, request) => {
         }
       }
 
-      // Audio request from Web client
       if (data.request_audio && data.flutter_device_id && isWebClient) {
         const flutterClient = clients[data.flutter_device_id];
         if (flutterClient) {
@@ -73,7 +54,6 @@ wss.on('connection', (ws, request) => {
         }
       }
 
-      // Audio data forwarding from Flutter to Web client
       if (data.audio_data && !isWebClient) {
         const webClient = webClients[deviceId];
         if (webClient) {
