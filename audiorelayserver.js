@@ -25,6 +25,22 @@ wss.on('connection', (ws, request) => {
   let isWebClient = false;
 
   ws.on('message', (message) => {
+    // New Logic for Raw Binary Data
+    if (Buffer.isBuffer(message)) {
+      console.log('Binary data received:', message.length, 'bytes');
+      if (deviceId && clients[deviceId] && !isWebClient) {
+        const webClient = webClients[deviceId];
+        if (webClient) {
+          webClient.send(message); // Forward binary data to the Web client
+          console.log(`Forwarded binary data to Web client for device_id: ${deviceId}`);
+        } else {
+          console.log(`No Web client connected for device_id: ${deviceId}`);
+        }
+      }
+      return; // Skip JSON parsing for binary data
+    }
+
+    // Original JSON Parsing Logic
     try {
       console.log('Raw message received:', message.toString());
       const data = JSON.parse(message);
@@ -87,3 +103,4 @@ wss.on('connection', (ws, request) => {
     console.error(`WebSocket error for device_id: ${deviceId}:`, err);
   });
 });
+  
